@@ -194,10 +194,8 @@ const InteractiveMachineVision: React.FC<{
 
   // Load from localStorage on mount
   useEffect(() => {
-    const savedDrawing = localStorage.getItem('rpm_monitor_drawing');
     const savedMarkers = localStorage.getItem('rpm_monitor_markers');
 
-    if (savedDrawing) setDrawingUrl(savedDrawing);
     if (savedMarkers) {
       try {
         setCustomMarkers(JSON.parse(savedMarkers));
@@ -207,15 +205,13 @@ const InteractiveMachineVision: React.FC<{
     }
   }, []);
 
-  // Save to localStorage on changes
+  // Save markers to localStorage with quota protection
   useEffect(() => {
-    if (drawingUrl) {
-      localStorage.setItem('rpm_monitor_drawing', drawingUrl);
+    try {
+      localStorage.setItem('rpm_monitor_markers', JSON.stringify(customMarkers));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded. Markers may not persist.', e);
     }
-  }, [drawingUrl]);
-
-  useEffect(() => {
-    localStorage.setItem('rpm_monitor_markers', JSON.stringify(customMarkers));
   }, [customMarkers]);
 
   const allComponents = useMemo(() =>
