@@ -9,7 +9,7 @@ export const DEFAULT_PARAMS: TransmissionParams = {
 };
 
 // Machine Drawing Reference Image
-export const MACHINE_DRAWING_URL = 'https://raw.githubusercontent.com/google/generative-ai-docs/main/site/en/gemini-api/docs/quickstart/machine_drawing_full.png';
+export const MACHINE_DRAWING_URL = '/default_drawing.pdf';
 
 export const GROUPS: GroupData[] = [
   {

@@ -1,6 +1,11 @@
 
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Settings, RefreshCw, Download, Factory, Gauge, Info, ChevronDown, ChevronUp, Layout, Calculator, ZoomIn, ZoomOut, Maximize, Search, Upload, MousePointer2, CheckCircle2, XCircle, Trash2, Crosshair, Target } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 import { GROUPS, DEFAULT_PARAMS, MACHINE_DRAWING_URL } from './constants';
 import { TransmissionParams, GroupInput, ComponentType, MechanicalComponent, GroupData } from './types';
 
@@ -189,7 +194,7 @@ const InteractiveMachineVision: React.FC<{
   const [searchTerm, setSearchTerm] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
+  const imageRef = useRef<HTMLImageElement | HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load from localStorage on mount
@@ -315,7 +320,7 @@ const InteractiveMachineVision: React.FC<{
             <Upload size={14} />
             Importar Desenho
           </button>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+          <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleImageUpload} className="hidden" />
 
           <button
             onClick={() => {
@@ -385,19 +390,45 @@ const InteractiveMachineVision: React.FC<{
         >
           <div className="relative inline-block min-w-max">
             {drawingUrl ? (
-              <img
-                ref={imageRef}
-                src={drawingUrl}
-                alt="Technical Drawing"
-                className={`w-auto block shadow-2xl transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
-                style={{ maxHeight: '10000px' }}
-                draggable={false}
-                onLoad={() => setIsImageLoading(false)}
-                onError={() => {
-                  setDrawingUrl(null);
-                  setIsImageLoading(false);
-                }}
-              />
+              drawingUrl.toLowerCase().endsWith('.pdf') ? (
+                <div ref={imageRef as any} className="shadow-2xl inline-block">
+                  <Document
+                    file={drawingUrl}
+                    loading={
+                      <div className="w-[800px] h-[600px] flex items-center justify-center bg-slate-100">
+                        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    }
+                    onLoadSuccess={() => setIsImageLoading(false)}
+                    onLoadError={(error) => {
+                      console.error('Error loading PDF:', error);
+                      setDrawingUrl(null);
+                      setIsImageLoading(false);
+                    }}
+                  >
+                    <Page
+                      pageNumber={1}
+                      width={1200}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                    />
+                  </Document>
+                </div>
+              ) : (
+                <img
+                  ref={imageRef as any}
+                  src={drawingUrl}
+                  alt="Technical Drawing"
+                  className={`w-auto block shadow-2xl transition-opacity duration-300 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                  style={{ maxHeight: '10000px' }}
+                  draggable={false}
+                  onLoad={() => setIsImageLoading(false)}
+                  onError={() => {
+                    setDrawingUrl(null);
+                    setIsImageLoading(false);
+                  }}
+                />
+              )
             ) : (
               <div className="w-[1200px] h-[700px] bg-white flex items-center justify-center border-4 border-dashed border-slate-200 rounded-[3rem] m-20 shadow-inner">
                 <div className="text-center px-12">
