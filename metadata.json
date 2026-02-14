@@ -1,0 +1,5 @@
+{
+  "name": "Monitor de RPM SWM BRASIL - Engenharia e Confiabilidade",
+  "description": "Aplicativo industrial para cálculo automático de RPM real de componentes mecânicos de máquinas de papel e celulose, com lógica de transmissão hierárquica por grupos.",
+  "requestFramePermissions": []
+}
