@@ -558,7 +558,7 @@ const InteractiveMachineVision: React.FC<{
                 </div>
 
                 <div
-                  className="absolute z-[100] bg-white border border-slate-200 rounded-3xl shadow-[0_30px_70px_rgba(0,0,0,0.25)] min-w-[320px] p-2 animate-in fade-in zoom-in-95 duration-200 mt-6"
+                  className="absolute z-[100] bg-white border border-slate-200 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.2)] w-[280px] p-1.5 animate-in fade-in zoom-in-95 duration-200 mt-4"
                   style={{
                     left: `${placingMarker.x}%`,
                     top: `${placingMarker.y}%`,
@@ -566,22 +566,23 @@ const InteractiveMachineVision: React.FC<{
                     transformOrigin: 'top left'
                   }}
                   onClick={(e) => e.stopPropagation()}
+                  onWheel={(e) => e.stopPropagation()}
                 >
-                  <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center mb-2">
+                  <div className="px-3 py-2 border-b border-slate-100 flex justify-between items-center mb-1.5">
                     <div className="flex flex-col">
-                      <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Vincular Componente</span>
-                      <span className="text-[10px] text-blue-600 font-bold">Coord: {placingMarker.x.toFixed(1)}%, {placingMarker.y.toFixed(1)}%</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Vincular</span>
+                      <span className="text-[9px] text-blue-600 font-bold leading-tight">{placingMarker.x.toFixed(1)}%, {placingMarker.y.toFixed(1)}%</span>
                     </div>
-                    <button onClick={() => setPlacingMarker(null)} className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"><XCircle size={20} /></button>
+                    <button onClick={() => setPlacingMarker(null)} className="text-slate-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-colors"><XCircle size={16} /></button>
                   </div>
 
-                  <div className="px-3 mb-2">
-                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 transition-all focus-within:ring-2 focus-within:ring-blue-500/20">
-                      <Search size={14} className="text-slate-400 mr-2" />
+                  <div className="px-1.5 mb-1.5">
+                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 transition-all focus-within:ring-2 focus-within:ring-blue-500/10">
+                      <Search size={12} className="text-slate-400 mr-2" />
                       <input
                         type="text"
-                        placeholder="Filtrar por ID ou Grupo..."
-                        className="bg-transparent text-xs font-bold w-full outline-none"
+                        placeholder="ID ou Grupo..."
+                        className="bg-transparent text-[11px] font-bold w-full outline-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         autoFocus
@@ -589,7 +590,13 @@ const InteractiveMachineVision: React.FC<{
                     </div>
                   </div>
 
-                  <div className="max-h-[400px] overflow-y-auto scrollbar-hide space-y-1 p-1">
+                  <div className="max-h-[250px] overflow-y-auto custom-scrollbar space-y-0.5 p-0.5" onWheel={(e) => e.stopPropagation()}>
+                    <style>{`
+                      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                      .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+                    `}</style>
                     {filteredComponentsForDropdown.map(g => (
                       <div key={g.id} className="mb-4 last:mb-0">
                         <div className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase mb-2 tracking-widest shadow-sm">{g.name}</div>
@@ -601,19 +608,19 @@ const InteractiveMachineVision: React.FC<{
                                 key={c.id}
                                 onClick={() => assignComponent(c.id)}
                                 className={`
-                                                        group/btn w-full flex items-center justify-between px-4 py-3 rounded-2xl text-left transition-all
-                                                        ${isAlreadyPlaced ? 'opacity-30 cursor-not-allowed bg-slate-50/50 grayscale' : 'hover:bg-blue-600 hover:text-white hover:shadow-lg active:scale-95'}
-                                                    `}
+                                  group/btn w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all
+                                  ${isAlreadyPlaced ? 'opacity-30 cursor-not-allowed bg-slate-50/50 grayscale' : 'hover:bg-blue-600 hover:text-white hover:shadow-md active:scale-95'}
+                                `}
                                 disabled={isAlreadyPlaced}
                               >
                                 <div className="flex flex-col">
-                                  <span className="text-sm font-black tracking-tight">{c.id}</span>
-                                  <span className={`text-[9px] font-bold uppercase tracking-widest ${isAlreadyPlaced ? 'text-slate-400' : 'text-slate-500 group-hover/btn:text-blue-100'}`}>{c.type}</span>
+                                  <span className="text-xs font-black tracking-tight leading-none mb-0.5">{c.id}</span>
+                                  <span className={`text-[8px] font-bold uppercase tracking-widest ${isAlreadyPlaced ? 'text-slate-400' : 'text-slate-500 group-hover/btn:text-blue-100'}`}>{c.type}</span>
                                 </div>
                                 {isAlreadyPlaced ? (
-                                  <CheckCircle2 size={16} className="text-emerald-500" />
+                                  <CheckCircle2 size={14} className="text-emerald-500" />
                                 ) : (
-                                  <div className="opacity-0 group-hover/btn:opacity-100 transition-opacity"><PlusCircle size={16} /></div>
+                                  <div className="opacity-0 group-hover/btn:opacity-100 transition-opacity"><PlusCircle size={14} /></div>
                                 )}
                               </button>
                             );
@@ -740,13 +747,28 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
             <span className="bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">{comp.type}</span>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center group/rpm">
               <span className="text-slate-500 font-black uppercase text-[9px] tracking-widest">RPM Real</span>
-              <span className="text-emerald-400 font-mono font-black text-sm">{displayRPM.toFixed(2)}</span>
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <input
+                  type="number"
+                  step="any"
+                  value={displayRPM.toFixed(2)}
+                  className="bg-transparent text-emerald-400 font-mono font-black text-sm w-20 text-right outline-none hover:bg-white/5 rounded px-1 transition-colors border border-transparent hover:border-white/10"
+                  onChange={(e) => onUpdateRPM(e.target.value ? parseFloat(e.target.value) : undefined)}
+                  title="Clique para sobrescrever Manualmente"
+                />
+              </div>
             </div>
             {pos.manualRPM !== undefined && (
               <div className="flex justify-between items-center">
                 <span className="text-amber-500 font-black uppercase text-[7px] tracking-widest">Sobrescrito Manualmente</span>
+                <button
+                  onClick={() => onUpdateRPM(undefined)}
+                  className="pointer-events-auto text-[7px] font-black text-amber-500/60 hover:text-amber-500 uppercase flex items-center gap-1"
+                >
+                  <RefreshCw size={8} /> Resetar
+                </button>
               </div>
             )}
             <div className="flex justify-between items-center">
