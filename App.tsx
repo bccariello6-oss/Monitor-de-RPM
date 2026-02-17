@@ -244,6 +244,7 @@ const InteractiveMachineVision: React.FC<{
   useEffect(() => {
     loadDrawingFromDB();
     const savedMarkers = localStorage.getItem('rpm_monitor_markers');
+    const savedViewState = localStorage.getItem('rpm_monitor_view_state');
 
     if (savedMarkers) {
       try {
@@ -252,7 +253,32 @@ const InteractiveMachineVision: React.FC<{
         console.error('Failed to parse saved markers', e);
       }
     }
+
+    if (savedViewState) {
+      try {
+        const { zoom: savedZoom, offset: savedOffset } = JSON.parse(savedViewState);
+        setZoom(savedZoom);
+        setOffset(savedOffset);
+      } catch (e) {
+        console.error('Failed to parse saved view state', e);
+      }
+    }
   }, []);
+
+  // Save markers to localStorage with quota protection
+  useEffect(() => {
+    try {
+      localStorage.setItem('rpm_monitor_markers', JSON.stringify(customMarkers));
+    } catch (e) {
+      console.warn('LocalStorage quota exceeded. Markers may not persist.', e);
+    }
+  }, [customMarkers]);
+
+  // Save view state to localStorage
+  useEffect(() => {
+    const viewState = { zoom, offset };
+    localStorage.setItem('rpm_monitor_view_state', JSON.stringify(viewState));
+  }, [zoom, offset]);
 
   const allComponents = useMemo(() =>
     groups.flatMap(g => g.components.map(c => ({ ...c, groupId: g.id, groupName: g.name }))),
@@ -352,18 +378,26 @@ const InteractiveMachineVision: React.FC<{
     setPlacingMarker(null);
   };
 
-  return (
-    <div className="vision-canvas-container flex flex-col bg-white rounded-2xl shadow-lg border border-slate-200 relative flex-1 overflow-hidden">
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
-      {/* Dynamic Toolbar */}
-      <div className="absolute top-4 left-4 z-50 flex flex-col gap-2">
-        <div className="flex bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-2xl p-2 gap-2">
+  return (
+    <div className="vision-canvas-container flex flex-col bg-slate-100 rounded-3xl shadow-2xl border border-slate-200 relative flex-1 overflow-hidden transition-all duration-300">
+
+      {/* --- Vision Header Bar --- */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-3 flex items-center justify-between z-50 shrink-0">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            className="group flex items-center gap-2 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95 disabled:opacity-50"
             disabled={isImageLoading}
           >
-            <Upload size={14} />
+            <Upload size={14} strokeWidth={2.5} className="group-hover:translate-y-[-1px] transition-transform" />
             Importar Desenho
           </button>
           <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleImageUpload} className="hidden" />
@@ -373,56 +407,30 @@ const InteractiveMachineVision: React.FC<{
               setIsEditMode(!isEditMode);
               setPlacingMarker(null);
             }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg active:scale-95 ${isEditMode ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95 ${isEditMode ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
           >
-            {isEditMode ? <CheckCircle2 size={14} /> : <MousePointer2 size={14} />}
+            {isEditMode ? <CheckCircle2 size={14} strokeWidth={2.5} /> : <MousePointer2 size={14} strokeWidth={2.5} />}
             {isEditMode ? 'Concluir Mapeamento' : 'Mapear Ativos'}
           </button>
         </div>
 
-        <div className="flex bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl overflow-hidden divide-x divide-slate-100 p-1 w-fit">
-          <button onClick={() => setZoom(z => Math.min(z * 1.3, 20))} className="p-2.5 hover:bg-slate-50 text-slate-600 transition-colors"><ZoomIn size={18} /></button>
-          <button onClick={() => setZoom(z => Math.max(z / 1.3, 0.05))} className="p-2.5 hover:bg-slate-50 text-slate-600 transition-colors"><ZoomOut size={18} /></button>
-          <button onClick={resetView} className="p-2.5 hover:bg-slate-50 text-slate-600 transition-colors"><Maximize size={18} /></button>
-          <button
-            onClick={() => {
-              if (confirm('Deseja remover todas as marcações?')) {
-                setCustomMarkers({});
-                localStorage.removeItem('rpm_monitor_markers');
-              }
-            }}
-            className="p-2.5 hover:bg-red-50 text-red-500 transition-colors"
-            title="Limpar todas as marcações"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
-      </div>
-
-      {/* Legend & Summary */}
-      <div className="absolute top-4 right-4 z-50">
-        <div className="bg-slate-900/90 backdrop-blur-xl p-4 rounded-3xl border border-white/10 text-white shadow-[0_20px_50px_rgba(0,0,0,0.3)] min-w-[180px]">
-          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-400">VISTA MP06</h3>
-            <div className="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-[9px] font-black">{Object.keys(customMarkers).length} ATIVOS</div>
+        <div className="flex items-center gap-6 bg-slate-50/50 px-5 py-2 rounded-2xl border border-slate-200/60 shadow-inner">
+          <div className="flex items-center gap-2 border-r border-slate-200 pr-4 mr-2">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vista MP06</h3>
+            <div className="bg-blue-600 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black shadow-sm">{Object.keys(customMarkers).length} ATIVOS</div>
           </div>
-          <div className="space-y-3">
+          <div className="flex gap-4">
             <LegendItem color="bg-indigo-500" label="Secadores" />
             <LegendItem color="bg-cyan-400" label="Sopradores" />
             <LegendItem color="bg-slate-400" label="Cil. Guia" />
           </div>
-          {isEditMode && (
-            <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-xl p-2 text-[8px] font-bold text-amber-200 uppercase leading-relaxed">
-              Clique no desenho para adicionar pontos de medição.
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Main Drawing Canvas */}
+      {/* --- Vision Body (Drawing) --- */}
       <div
         ref={containerRef}
-        className={`flex-1 w-full bg-slate-50 overflow-hidden relative select-none drawing-wrapper ${isEditMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`flex-1 w-full bg-slate-50/50 overflow-hidden relative select-none drawing-wrapper ${isEditMode ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -430,6 +438,11 @@ const InteractiveMachineVision: React.FC<{
         onWheel={handleWheel}
         onClick={handleCanvasClick}
       >
+        {isEditMode && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60] bg-amber-500 text-white px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl border border-amber-400/50 animate-bounce pointer-events-none">
+            Clique no desenho para adicionar pontos de medição
+          </div>
+        )}
         <div
           className="absolute origin-top-left transition-transform duration-100 ease-out"
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
@@ -610,6 +623,41 @@ const InteractiveMachineVision: React.FC<{
         </div>
       </div>
 
+      {/* --- Vision Footer Bar --- */}
+      <div className="bg-white border-t border-slate-200 px-6 py-2 flex items-center justify-between z-50 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+        <div className="flex bg-slate-100/80 backdrop-blur rounded-2xl border border-slate-200/60 p-1 shadow-inner">
+          <button onClick={() => setZoom(z => Math.max(z / 1.3, 0.05))} className="p-2 hover:bg-white hover:text-blue-600 text-slate-500 rounded-xl transition-all hover:shadow-sm" title="Zoom Out"><ZoomOut size={16} /></button>
+
+          <div className="flex items-center px-4 border-x border-slate-200 text-slate-800 font-mono font-black text-xs min-w-[80px] justify-center">
+            {Math.round(zoom * 100)}%
+          </div>
+
+          <button onClick={() => setZoom(z => Math.min(z * 1.3, 20))} className="p-2 hover:bg-white hover:text-blue-600 text-slate-500 rounded-xl transition-all hover:shadow-sm" title="Zoom In"><ZoomIn size={16} /></button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={resetView} className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-black transition-all border border-slate-200 shadow-sm" title="Ajustar ao centro"><Maximize size={14} /> Resetar Visual</button>
+
+          <div className="w-[1px] h-6 bg-slate-200 mx-2" />
+
+          <button onClick={toggleFullScreen} className="p-2.5 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-600 rounded-xl transition-all border border-slate-200 shadow-sm group" title="Tela Cheia">
+            <Layout size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button
+            onClick={() => {
+              if (confirm('Deseja remover todas as marcações?')) {
+                setCustomMarkers({});
+                localStorage.removeItem('rpm_monitor_markers');
+              }
+            }}
+            className="p-2.5 bg-slate-100 hover:bg-red-600 hover:text-white text-red-500 rounded-xl transition-all border border-slate-200 shadow-sm group"
+            title="Limpar todas as marcações"
+          >
+            <Trash2 size={18} className="group-hover:rotate-12 transition-transform" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
