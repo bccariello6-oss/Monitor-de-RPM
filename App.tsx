@@ -117,14 +117,16 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <div className="grid grid-cols-4 gap-4">
-              <ParameterInput label="Rodete" value={params.rodete} onChange={(v) => handleParamChange('rodete', v)} />
-              <ParameterInput label="Engr. Sec." value={params.engrenagemSecador} onChange={(v) => handleParamChange('engrenagemSecador', v)} />
-              <ParameterInput label="Soprador" value={params.soprador} onChange={(v) => handleParamChange('soprador', v)} />
-              <ParameterInput label="Cil. Guia" value={params.cilindroGuia} onChange={(v) => handleParamChange('cilindroGuia', v)} />
+          {activeTab === 'calc' && (
+            <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <div className="grid grid-cols-4 gap-4">
+                <ParameterInput label="Rodete" value={params.rodete} onChange={(v) => handleParamChange('rodete', v)} />
+                <ParameterInput label="Engr. Sec." value={params.engrenagemSecador} onChange={(v) => handleParamChange('engrenagemSecador', v)} />
+                <ParameterInput label="Soprador" value={params.soprador} onChange={(v) => handleParamChange('soprador', v)} />
+                <ParameterInput label="Cil. Guia" value={params.cilindroGuia} onChange={(v) => handleParamChange('cilindroGuia', v)} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
