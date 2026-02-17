@@ -165,7 +165,7 @@ const App: React.FC = () => {
             <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Sistema Ativo</span>
             <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div> Cálculos em Tempo Real</span>
           </div>
-          <span>SWM BRASIL &copy; 2024</span>
+          <span>SWM BRASIL &copy; 2026</span>
         </div>
       </footer>
     </div>
@@ -189,7 +189,7 @@ const InteractiveMachineVision: React.FC<{
   const [drawingUrl, setDrawingUrl] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [customMarkers, setCustomMarkers] = useState<Record<string, { x: number; y: number }>>({});
+  const [customMarkers, setCustomMarkers] = useState<Record<string, { x: number; y: number; manualRPM?: number }>>({});
   const [placingMarker, setPlacingMarker] = useState<{ x: number, y: number } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -197,8 +197,50 @@ const InteractiveMachineVision: React.FC<{
   const imageRef = useRef<HTMLImageElement | HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load from localStorage on mount
+  // IndexedDB Helper
+  const saveDrawingToDB = async (dataUrl: string) => {
+    try {
+      const request = indexedDB.open('RPM_Monitor_DB', 1);
+      request.onupgradeneeded = (e: any) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('assets')) {
+          db.createObjectStore('assets');
+        }
+      };
+      request.onsuccess = (e: any) => {
+        const db = e.target.result;
+        const transaction = db.transaction('assets', 'readwrite');
+        transaction.objectStore('assets').put(dataUrl, 'technical_drawing');
+      };
+    } catch (err) {
+      console.error('Error saving to IndexedDB:', err);
+    }
+  };
+
+  const loadDrawingFromDB = () => {
+    const request = indexedDB.open('RPM_Monitor_DB', 1);
+    request.onupgradeneeded = (e: any) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('assets')) {
+        db.createObjectStore('assets');
+      }
+    };
+    request.onsuccess = (e: any) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('assets')) return;
+      const transaction = db.transaction('assets', 'readonly');
+      const getRequest = transaction.objectStore('assets').get('technical_drawing');
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          setDrawingUrl(getRequest.result);
+        }
+      };
+    };
+  };
+
+  // Load from stores on mount
   useEffect(() => {
+    loadDrawingFromDB();
     const savedMarkers = localStorage.getItem('rpm_monitor_markers');
 
     if (savedMarkers) {
@@ -209,15 +251,6 @@ const InteractiveMachineVision: React.FC<{
       }
     }
   }, []);
-
-  // Save markers to localStorage with quota protection
-  useEffect(() => {
-    try {
-      localStorage.setItem('rpm_monitor_markers', JSON.stringify(customMarkers));
-    } catch (e) {
-      console.warn('LocalStorage quota exceeded. Markers may not persist.', e);
-    }
-  }, [customMarkers]);
 
   const allComponents = useMemo(() =>
     groups.flatMap(g => g.components.map(c => ({ ...c, groupId: g.id, groupName: g.name }))),
@@ -262,6 +295,7 @@ const InteractiveMachineVision: React.FC<{
         const result = event.target?.result;
         if (typeof result === 'string') {
           setDrawingUrl(result);
+          saveDrawingToDB(result);
           setZoom(1);
           setOffset({ x: 0, y: 0 });
         }
@@ -285,13 +319,23 @@ const InteractiveMachineVision: React.FC<{
     setSearchTerm('');
   };
 
-  const assignComponent = (compId: string) => {
+  const assignComponent = (compId: string, manualRPM?: number) => {
     if (!placingMarker) return;
     setCustomMarkers(prev => ({
       ...prev,
-      [compId]: placingMarker
+      [compId]: { ...placingMarker, manualRPM }
     }));
     setPlacingMarker(null);
+  };
+
+  const updateMarkerRPM = (compId: string, manualRPM: number | undefined) => {
+    setCustomMarkers(prev => {
+      if (!prev[compId]) return prev;
+      return {
+        ...prev,
+        [compId]: { ...prev[compId], manualRPM }
+      };
+    });
   };
 
   const removeMarker = (compId: string) => {
@@ -448,13 +492,6 @@ const InteractiveMachineVision: React.FC<{
                   {!isImageLoading && (
                     <div className="flex flex-col gap-4 items-center">
                       <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-10 py-5 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-2xl active:scale-95 flex items-center gap-3 mx-auto"
-                      >
-                        <Upload size={24} />
-                        Carregar Arquivo Local
-                      </button>
-                      <button
                         onClick={() => setDrawingUrl(MACHINE_DRAWING_URL)}
                         className="text-slate-400 hover:text-blue-600 font-bold text-sm transition-colors flex items-center gap-2"
                       >
@@ -480,8 +517,10 @@ const InteractiveMachineVision: React.FC<{
                   comp={comp}
                   rpm={rpm}
                   pos={pos}
+                  zoom={zoom}
                   isEditMode={isEditMode}
                   onRemove={() => removeMarker(comp.id)}
+                  onUpdateRPM={(val) => updateMarkerRPM(comp.id, val)}
                 />
               );
             })}
@@ -569,33 +608,6 @@ const InteractiveMachineVision: React.FC<{
         </div>
       </div>
 
-      {/* Bottom Sync Bar for RPM Inputs */}
-      <div className="bg-white border-t border-slate-200 p-4 shrink-0 flex items-center gap-6 overflow-x-auto scrollbar-hide">
-        <div className="flex items-center gap-3 px-6 border-r border-slate-200 mr-2 shrink-0">
-          <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-500/20"><Gauge size={18} className="text-white" /></div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Carga de RPM</span>
-            <span className="text-[9px] text-blue-600 font-bold uppercase tracking-tighter">Entrada por Grupo</span>
-          </div>
-        </div>
-        <div className="flex gap-4">
-          {groups.map(g => (
-            <div key={g.id} className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-2.5 shrink-0 transition-all hover:border-blue-400 hover:shadow-md group/input">
-              <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">GR{groups.indexOf(g) + 2}</span>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={groupInputs.find(i => i.id === g.id)?.inputRPM || ''}
-                  onChange={(e) => onRPMChange(g.id, e.target.value)}
-                  className="w-20 text-base font-black text-blue-800 bg-white border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:ring-4 focus:ring-blue-500/10 text-center transition-all"
-                  placeholder="0"
-                />
-                <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-sm opacity-0 group-focus-within/input:opacity-100 scale-0 group-focus-within/input:scale-100 transition-all"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
@@ -609,13 +621,16 @@ const PlusCircle: React.FC<{ size?: number }> = ({ size = 16 }) => (
 interface MarkerProps {
   comp: MechanicalComponent;
   rpm: number;
-  pos: { x: number; y: number };
+  pos: { x: number; y: number; manualRPM?: number };
+  zoom: number;
   isEditMode: boolean;
   onRemove: () => void;
+  onUpdateRPM: (val: number | undefined) => void;
 }
 
-const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, isEditMode, onRemove }) => {
-  const isMoving = rpm > 0;
+const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRemove, onUpdateRPM }) => {
+  const displayRPM = pos.manualRPM !== undefined ? pos.manualRPM : rpm;
+  const isMoving = displayRPM > 0;
 
   const colors = {
     SEC: 'bg-indigo-600 ring-indigo-200 border-indigo-100',
@@ -652,7 +667,11 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, isEditMode, onRemove })
       </div>
 
       {!isEditMode && (
-        <div className="absolute opacity-0 group-hover/marker:opacity-100 pointer-events-none transition-all bottom-full mb-6 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-xl text-white text-[10px] rounded-[1.5rem] px-5 py-4 shadow-[0_30px_80px_rgba(0,0,0,0.5)] border border-white/10 min-w-[200px] z-50">
+        <div
+          className="absolute pointer-events-none transition-all bottom-full mb-6 left-1/2 bg-slate-900/95 backdrop-blur-xl text-white text-[10px] rounded-[1.5rem] px-5 py-4 shadow-[0_30px_80px_rgba(0,0,0,0.5)] border border-white/10 min-w-[200px] z-50 origin-bottom"
+          style={{ transform: `translateX(-50%) scale(${1 / zoom})`, opacity: 'var(--tooltip-opacity, 0)' }}
+        >
+          <style>{`.group\\/marker:hover .absolute { --tooltip-opacity: 1; }`}</style>
           <div className="font-black text-blue-400 border-b border-white/10 mb-3 pb-2.5 flex justify-between items-center gap-4">
             <span className="tracking-tight text-xs">{comp.id}</span>
             <span className="bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest">{comp.type}</span>
@@ -660,14 +679,48 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, isEditMode, onRemove })
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-slate-500 font-black uppercase text-[9px] tracking-widest">RPM Real</span>
-              <span className="text-emerald-400 font-mono font-black text-sm">{rpm.toFixed(2)}</span>
+              <span className="text-emerald-400 font-mono font-black text-sm">{displayRPM.toFixed(2)}</span>
             </div>
+            {pos.manualRPM !== undefined && (
+              <div className="flex justify-between items-center">
+                <span className="text-amber-500 font-black uppercase text-[7px] tracking-widest">Sobrescrito Manualmente</span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="text-slate-500 font-black uppercase text-[9px] tracking-widest">Coordenadas</span>
               <span className="text-slate-400 text-[9px] font-mono font-bold">{pos.x.toFixed(1)}% / {pos.y.toFixed(1)}%</span>
             </div>
           </div>
           <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-[10px] border-x-transparent border-t-[10px] border-t-slate-900/95"></div>
+        </div>
+      )}
+
+      {isEditMode && (
+        <div
+          className="absolute top-full mt-4 left-1/2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50 origin-top"
+          style={{ transform: `translateX(-50%) scale(${1 / zoom})` }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-1">
+            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">RPM Manual (Opcional)</label>
+            <div className="flex gap-1">
+              <input
+                type="number"
+                className="w-16 text-[10px] font-bold border rounded px-1"
+                placeholder="Auto"
+                value={pos.manualRPM ?? ''}
+                onChange={e => onUpdateRPM(e.target.value ? parseFloat(e.target.value) : undefined)}
+              />
+              {pos.manualRPM !== undefined && (
+                <button
+                  onClick={() => onUpdateRPM(undefined)}
+                  className="text-[8px] bg-slate-100 px-1 rounded hover:bg-slate-200"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
