@@ -544,8 +544,12 @@ const InteractiveMachineVision: React.FC<{
             {placingMarker && (
               <React.Fragment>
                 <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none"
-                  style={{ left: `${placingMarker.x}%`, top: `${placingMarker.y}%` }}
+                  className="absolute z-50 pointer-events-none"
+                  style={{
+                    left: `${placingMarker.x}%`,
+                    top: `${placingMarker.y}%`,
+                    transform: `translate(-50%, -50%) scale(${1 / zoom})`
+                  }}
                 >
                   <div className="relative flex items-center justify-center">
                     <div className="w-8 h-8 rounded-full border-2 border-amber-500 animate-target-ping absolute"></div>
@@ -555,7 +559,12 @@ const InteractiveMachineVision: React.FC<{
 
                 <div
                   className="absolute z-[100] bg-white border border-slate-200 rounded-3xl shadow-[0_30px_70px_rgba(0,0,0,0.25)] min-w-[320px] p-2 animate-in fade-in zoom-in-95 duration-200 mt-6"
-                  style={{ left: `${placingMarker.x}%`, top: `${placingMarker.y}%` }}
+                  style={{
+                    left: `${placingMarker.x}%`,
+                    top: `${placingMarker.y}%`,
+                    transform: `scale(${1 / zoom})`,
+                    transformOrigin: 'top left'
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center mb-2">
@@ -690,8 +699,12 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
 
   return (
     <div
-      className="absolute -translate-x-1/2 -translate-y-1/2 marker-anim group/marker z-20"
-      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+      className="absolute marker-anim group/marker z-20"
+      style={{
+        left: `${pos.x}%`,
+        top: `${pos.y}%`,
+        transform: `translate(-50%, -50%) scale(${1 / zoom})`
+      }}
     >
       <div
         className={`
@@ -719,7 +732,7 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
       {!isEditMode && (
         <div
           className="absolute pointer-events-none transition-all bottom-full mb-6 left-1/2 bg-slate-900/95 backdrop-blur-xl text-white text-[10px] rounded-[1.5rem] px-5 py-4 shadow-[0_30px_80px_rgba(0,0,0,0.5)] border border-white/10 min-w-[200px] z-50 origin-bottom"
-          style={{ transform: `translateX(-50%) scale(${1 / zoom})`, opacity: 'var(--tooltip-opacity, 0)' }}
+          style={{ transform: `translateX(-50%)`, opacity: 'var(--tooltip-opacity, 0)' }}
         >
           <style>{`.group\\/marker:hover .absolute { --tooltip-opacity: 1; }`}</style>
           <div className="font-black text-blue-400 border-b border-white/10 mb-3 pb-2.5 flex justify-between items-center gap-4">
@@ -748,7 +761,7 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
       {isEditMode && (
         <div
           className="absolute top-full mt-4 left-1/2 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-50 origin-top"
-          style={{ transform: `translateX(-50%) scale(${1 / zoom})` }}
+          style={{ transform: `translateX(-50%)` }}
           onClick={e => e.stopPropagation()}
         >
           <div className="flex flex-col gap-1">
