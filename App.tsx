@@ -10,11 +10,41 @@ import { GROUPS, DEFAULT_PARAMS, MACHINE_DRAWING_URL } from './constants';
 import { TransmissionParams, GroupInput, ComponentType, MechanicalComponent, GroupData } from './types';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'calc' | 'vision'>('calc');
-  const [params, setParams] = useState<TransmissionParams>(DEFAULT_PARAMS);
-  const [groupInputs, setGroupInputs] = useState<GroupInput[]>(
-    GROUPS.map(g => ({ id: g.id, inputRPM: 0 }))
-  );
+  const [activeTab, setActiveTab] = useState<'calc' | 'vision'>(() => {
+    const saved = localStorage.getItem('rpm_monitor_active_tab');
+    return (saved === 'calc' || saved === 'vision') ? saved : 'calc';
+  });
+
+  const [params, setParams] = useState<TransmissionParams>(() => {
+    const saved = localStorage.getItem('rpm_monitor_calc_params');
+    try {
+      return saved ? JSON.parse(saved) : DEFAULT_PARAMS;
+    } catch {
+      return DEFAULT_PARAMS;
+    }
+  });
+
+  const [groupInputs, setGroupInputs] = useState<GroupInput[]>(() => {
+    const saved = localStorage.getItem('rpm_monitor_calc_group_inputs');
+    try {
+      return saved ? JSON.parse(saved) : GROUPS.map(g => ({ id: g.id, inputRPM: 0 }));
+    } catch {
+      return GROUPS.map(g => ({ id: g.id, inputRPM: 0 }));
+    }
+  });
+
+  // Persist Tab & Calc state
+  useEffect(() => {
+    localStorage.setItem('rpm_monitor_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('rpm_monitor_calc_params', JSON.stringify(params));
+  }, [params]);
+
+  useEffect(() => {
+    localStorage.setItem('rpm_monitor_calc_group_inputs', JSON.stringify(groupInputs));
+  }, [groupInputs]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(GROUPS.map(g => [g.id, true]))
@@ -49,9 +79,13 @@ const App: React.FC = () => {
   }, []);
 
   const resetAll = () => {
-    setParams(DEFAULT_PARAMS);
-    setGroupInputs(GROUPS.map(g => ({ id: g.id, inputRPM: 0 })));
-    setCollapsedGroups(Object.fromEntries(GROUPS.map(g => [g.id, true])));
+    if (confirm('Deseja resetar todos os parâmetros da calculadora e voltar para a estaca zero?')) {
+      setParams(DEFAULT_PARAMS);
+      setGroupInputs(GROUPS.map(g => ({ id: g.id, inputRPM: 0 })));
+      setCollapsedGroups(Object.fromEntries(GROUPS.map(g => [g.id, true])));
+      localStorage.removeItem('rpm_monitor_calc_params');
+      localStorage.removeItem('rpm_monitor_calc_group_inputs');
+    }
   };
 
   const exportToCSV = () => {
@@ -97,8 +131,11 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="bg-blue-600 p-2 rounded-lg shadow-sm"><Factory className="text-white w-5 h-5" /></div>
               <div>
-                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">Monitor de RPM SWM BRASIL</h1>
-                <span className="text-slate-500 font-medium text-[10px] uppercase tracking-wider">Engenharia e Confiabilidade</span>
+                <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none mb-0.5">Monitor de RPM SWM BRASIL</h1>
+                <p className="text-[9px] text-slate-400 font-semibold italic max-w-[400px] leading-tight mb-1">
+                  Medição de RPM dos equipamentos da cadeia de Secadores, partindo da medida no eixo flutuante da transmissão secundária
+                </p>
+                <span className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.15em] leading-none">Engenharia e Confiabilidade</span>
               </div>
             </div>
 
