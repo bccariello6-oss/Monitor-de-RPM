@@ -593,7 +593,10 @@ const InteractiveMachineVision: React.FC<{
                   isEditMode={isEditMode}
                   onRemove={() => removeMarker(comp.id)}
                   onUpdateRPM={(val) => updateMarkerRPM(comp.id, val)}
-                  onDragStart={(id) => setDraggingMarkerId(id)}
+                  onDragStart={(id) => {
+                    setDraggingMarkerId(id);
+                    setIsEditMode(true);
+                  }}
                   isDragging={draggingMarkerId === comp.id}
                 />
               );
@@ -775,17 +778,15 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
         filter: isDragging ? 'drop-shadow(0 0 20px rgba(0,0,0,0.3))' : 'none'
       }}
       onMouseDown={(e) => {
-        if (isEditMode) {
-          e.stopPropagation();
-          onDragStart(comp.id);
-        }
+        e.stopPropagation();
+        onDragStart(comp.id);
       }}
     >
       <div
         className={`
             w-8 h-8 rounded-full flex items-center justify-center border-4 shadow-2xl transition-all relative
             ${colors[comp.type]} ${isMoving ? 'animate-pulse ring-8' : 'opacity-90 scale-90'}
-            ${isEditMode ? 'hover:scale-125 cursor-grab active:cursor-grabbing' : 'cursor-help'}
+            hover:scale-125 cursor-grab active:cursor-grabbing
             ${isDragging ? 'scale-110 ring-4 ring-white' : ''}
         `}
       >
