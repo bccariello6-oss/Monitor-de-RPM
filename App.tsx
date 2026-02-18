@@ -193,6 +193,7 @@ const InteractiveMachineVision: React.FC<{
   const [isEditMode, setIsEditMode] = useState(false);
   const [customMarkers, setCustomMarkers] = useState<Record<string, { x: number; y: number; manualRPM?: number }>>({});
   const [placingMarker, setPlacingMarker] = useState<{ x: number, y: number } | null>(null);
+  const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -302,11 +303,30 @@ const InteractiveMachineVision: React.FC<{
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingMarkerId && imageRef.current) {
+      const rect = imageRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      // Clamp values between 0 and 100
+      const clampedX = Math.max(0, Math.min(100, x));
+      const clampedY = Math.max(0, Math.min(100, y));
+
+      setCustomMarkers(prev => ({
+        ...prev,
+        [draggingMarkerId]: { ...prev[draggingMarkerId], x: clampedX, y: clampedY }
+      }));
+      return;
+    }
+
     if (!isDragging) return;
     setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setDraggingMarkerId(null);
+  };
 
   const handleWheel = (e: React.WheelEvent) => {
     const delta = e.deltaY * -0.001;
@@ -536,6 +556,8 @@ const InteractiveMachineVision: React.FC<{
                   isEditMode={isEditMode}
                   onRemove={() => removeMarker(comp.id)}
                   onUpdateRPM={(val) => updateMarkerRPM(comp.id, val)}
+                  onDragStart={(id) => setDraggingMarkerId(id)}
+                  isDragging={draggingMarkerId === comp.id}
                 />
               );
             })}
@@ -692,9 +714,11 @@ interface MarkerProps {
   isEditMode: boolean;
   onRemove: () => void;
   onUpdateRPM: (val: number | undefined) => void;
+  onDragStart: (id: string) => void;
+  isDragging: boolean;
 }
 
-const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRemove, onUpdateRPM }) => {
+const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRemove, onUpdateRPM, onDragStart, isDragging }) => {
   const displayRPM = pos.manualRPM !== undefined ? pos.manualRPM : rpm;
   const isMoving = displayRPM > 0;
 
@@ -706,18 +730,26 @@ const Marker: React.FC<MarkerProps> = ({ comp, rpm, pos, zoom, isEditMode, onRem
 
   return (
     <div
-      className="absolute marker-anim group/marker z-20"
+      className={`absolute marker-anim group/marker z-20 ${isDragging ? 'z-[100]' : ''}`}
       style={{
         left: `${pos.x}%`,
         top: `${pos.y}%`,
-        transform: `translate(-50%, -50%) scale(${1 / zoom})`
+        transform: `translate(-50%, -50%) scale(${(isDragging ? 1.5 : 1) / zoom})`,
+        filter: isDragging ? 'drop-shadow(0 0 20px rgba(0,0,0,0.3))' : 'none'
+      }}
+      onMouseDown={(e) => {
+        if (isEditMode) {
+          e.stopPropagation();
+          onDragStart(comp.id);
+        }
       }}
     >
       <div
         className={`
             w-8 h-8 rounded-full flex items-center justify-center border-4 shadow-2xl transition-all relative
             ${colors[comp.type]} ${isMoving ? 'animate-pulse ring-8' : 'opacity-90 scale-90'}
-            ${isEditMode ? 'hover:scale-125 cursor-default' : 'cursor-help'}
+            ${isEditMode ? 'hover:scale-125 cursor-grab active:cursor-grabbing' : 'cursor-help'}
+            ${isDragging ? 'scale-110 ring-4 ring-white' : ''}
         `}
       >
         {isMoving ? (
