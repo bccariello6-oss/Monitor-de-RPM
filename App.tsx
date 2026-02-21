@@ -62,7 +62,6 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
         .single();
 
       if (data) {
-        if (data.active_tab) setActiveTab(data.active_tab as any);
         if (data.calc_params) setParams(data.calc_params as any);
         if (data.group_inputs) setGroupInputs(data.group_inputs as any);
         if (data.custom_markers) setCustomMarkers(data.custom_markers as any);
@@ -76,13 +75,12 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
     fetchState();
   }, [session.user.id]);
 
-  // Unified debounced Cloud Save
+  // Unified debounced Cloud Save (excludes activeTab to avoid unnecessary syncs)
   useEffect(() => {
     const timer = setTimeout(async () => {
       setIsCloudSyncing(true);
       await supabase.from('user_states').upsert({
         user_id: session.user.id,
-        active_tab: activeTab,
         calc_params: params,
         group_inputs: groupInputs,
         custom_markers: customMarkers,
@@ -91,10 +89,10 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
         updated_at: new Date().toISOString()
       });
       setIsCloudSyncing(false);
-    }, 1000);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [session.user.id, activeTab, params, groupInputs, customMarkers, viewState, drawingUrl]);
+  }, [session.user.id, params, groupInputs, customMarkers, viewState, drawingUrl]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(GROUPS.map(g => [g.id, true]))
@@ -325,6 +323,8 @@ const InteractiveMachineVision: React.FC<{
       const file = e.target.files?.[0];
       if (file) {
         setIsImageLoading(true);
+
+        // 1. Instant local preview via FileReader
         const reader = new FileReader();
         reader.onload = (event) => {
           const result = event.target?.result;
@@ -340,6 +340,32 @@ const InteractiveMachineVision: React.FC<{
           alert('Erro ao carregar o arquivo.');
         };
         reader.readAsDataURL(file);
+
+        // 2. Background upload to Supabase Storage for persistence
+        (async () => {
+          try {
+            const fileExt = file.name.split('.').pop();
+            const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('user-drawings')
+              .upload(filePath, file, { upsert: true });
+
+            if (uploadError) {
+              console.warn('Background upload failed:', uploadError.message);
+              return; // Local preview still works
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('user-drawings')
+              .getPublicUrl(filePath);
+
+            // Replace base64 with persistent URL
+            setDrawingUrl(publicUrl);
+          } catch (err) {
+            console.warn('Background upload error:', err);
+          }
+        })();
       }
     };
 
