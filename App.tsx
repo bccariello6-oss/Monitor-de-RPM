@@ -16,8 +16,9 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Always start with login page on fresh page load
-    supabase.auth.signOut().then(() => {
+    // Check for existing session on page load (preserves login across refreshes)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setIsInitializing(false);
     });
 
