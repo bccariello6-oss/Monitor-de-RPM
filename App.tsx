@@ -45,13 +45,18 @@ const App: React.FC = () => {
 };
 
 const MainApp: React.FC<{ session: Session }> = ({ session }) => {
-  const [activeTab, setActiveTab] = useState<'calc' | 'vision'>('calc');
+  const [activeTab, setActiveTab] = useState<'calc' | 'vision'>(() => {
+    const saved = localStorage.getItem('rpm_monitor_active_tab');
+    return saved === 'vision' ? 'vision' : 'calc';
+  });
+  const isSigningOut = useRef(false);
   const [params, setParams] = useState<TransmissionParams>(DEFAULT_PARAMS);
   const [groupInputs, setGroupInputs] = useState<GroupInput[]>(GROUPS.map(g => ({ id: g.id, inputRPM: 0 })));
   const [customMarkers, setCustomMarkers] = useState<Record<string, { x: number; y: number; manualRPM?: number }>>({});
   const [viewState, setViewState] = useState({ zoom: 1, offset: { x: 0, y: 0 } });
   const [drawingUrl, setDrawingUrl] = useState<string | null>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Fetch from Cloud on mount
   useEffect(() => {
@@ -72,13 +77,23 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
         // No record yet, create it
         await supabase.from('user_states').insert({ user_id: session.user.id });
       }
+      setIsDataLoaded(true);
     };
     fetchState();
   }, [session.user.id]);
 
-  // Unified debounced Cloud Save (excludes activeTab to avoid unnecessary syncs)
+  // Persist activeTab to localStorage
   useEffect(() => {
+    localStorage.setItem('rpm_monitor_active_tab', activeTab);
+  }, [activeTab]);
+
+  // Unified debounced Cloud Save (excludes activeTab to avoid unnecessary syncs)
+  // Only sync after initial data has been loaded from the cloud, and skip during sign-out
+  useEffect(() => {
+    if (!isDataLoaded || isSigningOut.current) return;
+
     const timer = setTimeout(async () => {
+      if (isSigningOut.current) return;
       setIsCloudSyncing(true);
       await supabase.from('user_states').upsert({
         user_id: session.user.id,
@@ -93,7 +108,7 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [session.user.id, params, groupInputs, customMarkers, viewState, drawingUrl]);
+  }, [session.user.id, params, groupInputs, customMarkers, viewState, drawingUrl, isDataLoaded]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(
     Object.fromEntries(GROUPS.map(g => [g.id, true]))
@@ -255,7 +270,7 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
         <div className="max-w-7xl mx-auto flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
           <div className="flex gap-4 items-center">
             <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div> Sessão: {session.user.email}</span>
-            <button onClick={() => supabase.auth.signOut()} className="text-red-500 hover:text-red-700 font-black transition-colors">SAIR</button>
+            <button onClick={() => { isSigningOut.current = true; supabase.auth.signOut(); }} className="text-red-500 hover:text-red-700 font-black transition-colors">SAIR</button>
           </div>
           <span>SWM BRASIL &copy; 2026</span>
         </div>
