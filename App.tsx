@@ -182,18 +182,7 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
               <div className="bg-blue-600 p-2 rounded-lg shadow-sm"><Factory className="text-white w-5 h-5" /></div>
               <div>
                 <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none mb-0.5">Monitor de RPM SWM BRASIL</h1>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.15em] leading-none">Engenharia e Confiabilidade</span>
-                  {isCloudSyncing ? (
-                    <span className="text-[8px] text-blue-500 font-bold animate-pulse flex items-center gap-1">
-                      <RefreshCw size={8} className="animate-spin" /> SINCRONIZANDO NUVEM...
-                    </span>
-                  ) : (
-                    <span className="text-[8px] text-emerald-500 font-bold flex items-center gap-1">
-                      <CheckCircle2 size={8} /> SINCRONIZADO
-                    </span>
-                  )}
-                </div>
+                <span className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.15em] leading-none">Engenharia e Confiabilidade</span>
               </div>
             </div>
 
@@ -332,34 +321,25 @@ const InteractiveMachineVision: React.FC<{
     const imageRef = useRef<HTMLImageElement | HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
         setIsImageLoading(true);
-        try {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${session.user.id}/${Math.random()}.${fileExt}`;
-          const filePath = `${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('user-drawings')
-            .upload(filePath, file);
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('user-drawings')
-            .getPublicUrl(filePath);
-
-          setDrawingUrl(publicUrl);
-          setZoom(1);
-          setOffset({ x: 0, y: 0 });
-        } catch (err: any) {
-          console.error('Error uploading to Supabase Storage:', err);
-          alert('Erro ao fazer upload: ' + err.message);
-        } finally {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result;
+          if (typeof result === 'string') {
+            setDrawingUrl(result);
+            setZoom(0.37);
+            setOffset({ x: 0, y: 0 });
+          }
+        };
+        reader.onerror = () => {
           setIsImageLoading(false);
-        }
+          setDrawingUrl(null);
+          alert('Erro ao carregar o arquivo.');
+        };
+        reader.readAsDataURL(file);
       }
     };
 
