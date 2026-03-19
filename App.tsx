@@ -96,15 +96,18 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
     const timer = setTimeout(async () => {
       if (isSigningOut.current) return;
       setIsCloudSyncing(true);
+      // Only save to DB if it's NOT a base64 preview (avoids bloating DB and potential timeout for large files)
+      const urlToSave = drawingUrl?.startsWith('data:') ? null : drawingUrl;
+
       await supabase.from('user_states').upsert({
         user_id: session.user.id,
         calc_params: params,
         group_inputs: groupInputs,
         custom_markers: customMarkers,
         view_state: viewState,
-        drawing_url: drawingUrl,
+        drawing_url: urlToSave,
         updated_at: new Date().toISOString()
-      });
+      }, { onConflict: 'user_id' });
       setIsCloudSyncing(false);
     }, 1500);
 
