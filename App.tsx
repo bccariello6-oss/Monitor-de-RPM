@@ -4,7 +4,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 import { GROUPS, DEFAULT_PARAMS, MACHINE_DRAWING_URL } from './constants';
 import { TransmissionParams, GroupInput, ComponentType, MechanicalComponent, GroupData } from './types';
 import { supabase } from './supabase';
@@ -68,10 +68,11 @@ const MainApp: React.FC<{ session: Session }> = ({ session }) => {
         .single();
 
       if (data) {
-        if (data.calc_params) setParams(data.calc_params as any);
-        if (data.group_inputs) setGroupInputs(data.group_inputs as any);
-        if (data.custom_markers) setCustomMarkers(data.custom_markers as any);
-        if (data.view_state) setViewState(data.view_state as any);
+        // Only update state if keys exist in the fetched data to avoid overwriting defaults with empty objects
+        if (data.calc_params && Object.keys(data.calc_params as any).length > 0) setParams(data.calc_params as any);
+        if (data.group_inputs && (data.group_inputs as any).length > 0) setGroupInputs(data.group_inputs as any);
+        if (data.custom_markers && Object.keys(data.custom_markers as any).length > 0) setCustomMarkers(data.custom_markers as any);
+        if (data.view_state && Object.keys(data.view_state as any).length > 0) setViewState(data.view_state as any);
         if (data.drawing_url) setDrawingUrl(data.drawing_url);
       } else if (error && error.code === 'PGRST116') {
         // No record yet, create it
@@ -308,7 +309,7 @@ const InteractiveMachineVision: React.FC<{
   drawingUrl,
   setDrawingUrl
 }) => {
-    const { zoom, offset } = viewState;
+    const { zoom = 1, offset = { x: 0, y: 0 } } = viewState || {};
     const setZoom = (newZoom: number | ((z: number) => number)) => {
       setViewState(prev => ({
         ...prev,
